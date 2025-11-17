@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Confetti Roulette — Brinquedo</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #0b1220;
+            --accent: #f97316;
+            --muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial;
+            background: radial-gradient(1000px 600px at 10% 10%, #071028 0%, var(--bg) 40%), var(--bg);
+            color: #e6eef8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            width: min(920px, 95vw);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08));
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 8px 36px rgba(2, 6, 23, 0.7);
+            display: grid;
+            gap: 18px;
+            grid-template-columns: 1fr 360px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+        .left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            padding: 8px
+        }
+
+        .cylinder-wrap {
+            width: 320px;
+            height: 320px;
+            display: grid;
+            place-items: center;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.06));
+            border-radius: 12px;
+            padding: 18px
+        }
+
+        svg {
+            width: 260px;
+            height: 260px;
+            overflow: visible
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            max-width: 360px;
+            padding: 8px
+        }
+
+        .btn {
+            background: var(--accent);
+            border: none;
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: #081225;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--muted);
+            font-weight: 600
+        }
+
+        .row {
+            display: flex;
+            gap: 10px
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--muted);
+            min-height: 48px;
+            display: flex;
+            align-items: center
+        }
+
+        footer {
+            grid-column: 1/-1;
+            color: #94a3b8;
+            font-size: 0.85rem
+        }
+
+        @media(max-width:880px) {
+            .card {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* confetti canvas covers left area */
+        #confettiCanvas {
+            position: absolute;
+            pointer-events: none;
+            left: 0;
+            top: 0
+        }
+
+        .legend {
+            font-size: 0.85rem;
+            color: var(--muted)
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card" id="app">
+        <div class="left" style="position:relative;">
+            <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+                <h1>Confetti Roulette <span style="font-size:0.8rem;color:var(--muted)">— brinquedo seguro</span></h1>
+                <div class="legend">6 câmaras • 1 bala (brinquedo)</div>
+            </div>
+
+            <div class="cylinder-wrap" id="visualArea">
+                <svg viewBox="-120 -120 240 240" id="cylinderSvg" aria-hidden="false" role="img">
+                    <!-- outer ring -->
+                    <defs>
+                        <linearGradient id="metal" x1="0" x2="1">
+                            <stop offset="0" stop-color="#7b8799" />
+                            <stop offset="1" stop-color="#2b3b4a" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="0" cy="0" r="96" fill="url(#metal)" stroke="#0b1220" stroke-width="4" />
+                    <!-- six chambers -->
+                    <g id="chambers"></g>
+                    <!-- center cap -->
+                    <circle cx="0" cy="0" r="30" fill="#091026" stroke="#1b2330" stroke-width="3" />
+                    <text x="0" y="6" text-anchor="middle" font-size="9" fill="#9fb4d0"
+                        font-weight="700">BRINQUEDO</text>
+                    <!-- marker for the firing position -->
+                    <polygon id="marker" points="-6,-110 6,-110 0,-98" fill="#f97316" />
+                </svg>
+                <!-- confetti canvas -->
+                <canvas id="confettiCanvas"></canvas>
+            </div>
+
+            <div style="width:100%;display:flex;justify-content:center">
+                <div class="status" id="status">Gire o cilindro e puxe o gatilho — é seguro e só confete!</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <button class="btn" id="spinBtn">Girar cilindro</button>
+                    <button class="btn secondary" id="shuffleBtn"
+                        title="Distribui a bala aleatoriamente">Aleatorizar</button>
+                </div>
+                <div style="text-align:right">
+                    <button class="btn" id="pullBtn" style="background:#06b6d4;color:#021722">Puxar gatilho</button>
+                </div>
+            </div>
+
+            <div class="row">
+                <button class="btn secondary" id="peekBtn">Olhar câmaras</button>
+                <button class="btn secondary" id="resetBtn">Resetar</button>
+            </div>
+
+            <div style="margin-top:6px">
+                <label class="legend">Controles adicionais</label>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                    <button class="btn secondary" id="soundToggle">Som: ligado</button>
+                    <button class="btn secondary" id="vibeToggle">Vibração: ligado</button>
+                </div>
+            </div>
+
+            <div style="margin-top:12px">
+                <div class="legend">Histórico</div>
+                <div id="log"
+                    style="margin-top:8px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);min-height:120px;overflow:auto;font-size:0.9rem;color:var(--muted)">
+                </div>
+            </div>
+        </div>
+
+        <footer>Feito para diversão — sem violência. Código aberto para brincar e modificar.</footer>
+    </main>
+
+    <script>
+        /* --- Setup model: 6 chambers, one "bala" (toy) --- */
+        const chambersCount = 6;
+        let bulletIndex = Math.floor(Math.random() * chambersCount); // where the toy bullet is
+        let currentIndex = 0; // firing position (0 means top/marker)
+        let spinning = false;
+        let soundOn = true;
+        let vibOn = true;
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+        const confettiCanvas = document.getElementById('confettiCanvas');
+        const visual = document.getElementById('visualArea');
+        const svgChambers = document.getElementById('chambers');
+
+        function addLog(txt) {
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML = `<div style="padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.02)"><strong style="color:#cbd5e1">${time}</strong> — ${txt}</div>` + logEl.innerHTML;
+        }
+
+        /* --- draw chambers as sectors --- */
+        function drawChambers(reveal = false) {
+            svgChambers.innerHTML = '';
+            for (let i = 0; i < chambersCount; i++) {
+                const angle = (360 / chambersCount) * i - 90; // starting top
+                const large = 360 / chambersCount;
+                const path = sectorPath(0, 0, 40, 70, angle, large);
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('transform', 'rotate(' + (angle + large / 2) + ') translate(0 -35)');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', 0);
+                circle.setAttribute('cy', -70);
+                circle.setAttribute('r', 14);
+                circle.setAttribute('fill', i === bulletIndex && reveal ? '#ef4444' : '#1f2937');
+                circle.setAttribute('stroke', '#0b1220');
+                circle.setAttribute('stroke-width', '1');
+                g.appendChild(circle);
+
+                // small index label
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', 0); txt.setAttribute('y', -70 + 5);
+                txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('font-size', '6');
+                txt.setAttribute('fill', '#9fb4d0'); txt.setAttribute('opacity', '0.7');
+                txt.textContent = i + 1;
+                g.appendChild(txt);
+                svgChambers.appendChild(g);
+            }
+        }
+        function sectorPath(cx, cy, innerR, outerR, startAng, spanAng) {
+            const toRad = (a) => (a * Math.PI / 180);
+            const x1 = cx + outerR * Math.cos(toRad(startAng));
+            const y1 = cy + outerR * Math.sin(toRad(startAng));
+            const x2 = cx + outerR * Math.cos(toRad(startAng + spanAng));
+            const y2 = cy + outerR * Math.sin(toRad(startAng + spanAng));
+            const xi1 = cx + innerR * Math.cos(toRad(startAng + spanAng));
+            const yi1 = cy + innerR * Math.sin(toRad(startAng + spanAng));
+            const xi2 = cx + innerR * Math.cos(toRad(startAng));
+            const yi2 = cy + innerR * Math.sin(toRad(startAng));
+            const large = spanAng > 180 ? 1 : 0;
+            return `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${large} 1 ${x2} ${y2} L ${xi1} ${yi1} A ${innerR} ${innerR} 0 ${large} 0 ${xi2} ${yi2} Z`;
+        }
+
+        /* initial draw */
+        drawChambers(false);
+
+        /* --- canvas confetti implementation --- */
+        const ctx = confettiCanvas.getContext('2d');
+        function resizeConfetti() {
+            const rect = visual.getBoundingClientRect();
+            confettiCanvas.width = rect.width;
+            confettiCanvas.height = rect.height;
+            confettiCanvas.style.left = rect.left + 'px';
+            confettiCanvas.style.top = rect.top + 'px';
+            confettiCanvas.style.width = rect.width + 'px';
+            confettiCanvas.style.height = rect.height + 'px';
+        }
+        window.addEventListener('resize', resizeConfetti);
+        resizeConfetti();
+
+        let confettiPieces = [];
+        function launchConfetti() {
+            confettiPieces = [];
+            const count = 120;
+            for (let i = 0; i < count; i++) {
+                confettiPieces.push({
+                    x: confettiCanvas.width / 2 + (Math.random() - 0.5) * 80,
+                    y: confettiCanvas.height / 2 + 10,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: - (Math.random() * 8 + 6),
+                    size: Math.random() * 6 + 4,
+                    rot: Math.random() * 360,
+                    vr: (Math.random() - 0.5) * 8,
+                    color: ['#ef4444', '#f97316', '#fbbf24', '#10b981', '#3b82f6', '#8b5cf6'][Math.floor(Math.random() * 6)]
+                });
+            }
+            requestAnimationFrame(confettiLoop);
+        }
+        let lastTime = 0;
+        function confettiLoop(t) {
+            const dt = (t - lastTime) / 1000 || 0.016;
+            lastTime = t;
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            for (let p of confettiPieces) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 18 * dt; // gravity
+                p.rot += p.vr;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot * Math.PI / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                ctx.restore();
+            }
+            confettiPieces = confettiPieces.filter(p => p.y < confettiCanvas.height + 40);
+            if (confettiPieces.length > 0) requestAnimationFrame(confettiLoop);
+        }
+
+        /* --- sounds via WebAudio --- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playClick() {
+            if (!soundOn) return;
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'square'; o.frequency.value = 120;
+            g.gain.value = 0.0001;
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start();
+            g.gain.exponentialRampToValueAtTime(0.02, audioCtx.currentTime + 0.01);
+            o.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.11);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+            setTimeout(() => o.stop(), 300);
+        }
+        function playPop() {
+            if (!soundOn) return;
+            // short burst + noise
+            const b = audioCtx.createBufferSource();
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.25, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.06));
+            }
+            b.buffer = buffer;
+            const g = audioCtx.createGain();
+            g.gain.value = 0.6;
+            b.connect(g); g.connect(audioCtx.destination);
+            b.start();
+            setTimeout(() => b.stop(), 260);
+        }
+
+        /* --- controls logic --- */
+        const spinBtn = document.getElementById('spinBtn');
+        const pullBtn = document.getElementById('pullBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const peekBtn = document.getElementById('peekBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const soundToggle = document.getElementById('soundToggle');
+        const vibeToggle = document.getElementById('vibeToggle');
+
+        spinBtn.addEventListener('click', () => {
+            if (spinning) return;
+            spinning = true;
+            statusEl.textContent = 'Girando o cilindro...';
+            addLog('Cilindro girado.');
+            // spin animation: rotate currentIndex randomly across several steps
+            const spins = 10 + Math.floor(Math.random() * 12);
+            let step = 0;
+            const spinInterval = setInterval(() => {
+                currentIndex = (currentIndex + 1) % chambersCount;
+                updateMarkerRotation();
+                step++;
+                if (step >= spins) {
+                    clearInterval(spinInterval);
+                    spinning = false;
+                    statusEl.textContent = 'Cilindro parado. Puxe o gatilho quando estiver pronto.';
+                }
+            }, 90 - Math.min(60, Math.floor(Math.random() * 50)));
+        });
+
+        shuffleBtn.addEventListener('click', () => {
+            bulletIndex = Math.floor(Math.random() * chambersCount);
+            addLog('Bala redistribuída (brinquedo).');
+            statusEl.textContent = 'Bala redistribuída (brinquedo).';
+            drawChambers(false);
+        });
+
+        pullBtn.addEventListener('click', async () => {
+            if (spinning) { statusEl.textContent = 'Espere o cilindro parar...'; return; }
+            // unlock audio on some browsers
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            statusEl.textContent = 'Puxando gatilho...';
+            // small delay to simulate action
+            setTimeout(() => {
+                if (currentIndex === bulletIndex) {
+                    // HIT -> confetti
+                    playPop();
+                    launchConfetti();
+                    statusEl.textContent = 'POP! — confete! 🎉';
+                    addLog(`Confete disparado na câmara ${currentIndex + 1}.`);
+                    if (vibOn && navigator.vibrate) navigator.vibrate([60, 30, 40]);
+                    // after hit, move bullet to a new random chamber automatically (toy behavior)
+                    bulletIndex = Math.floor(Math.random() * chambersCount);
+                    drawChambers(true);
+                } else {
+                    playClick();
+                    statusEl.textContent = 'Click — nada (brinquedo).';
+                    addLog(`Click na câmara ${currentIndex + 1}.`);
+                    currentIndex = (currentIndex + 1) % chambersCount;
+                    updateMarkerRotation();
+                    drawChambers(false);
+                }
+            }, 300);
+        });
+
+        peekBtn.addEventListener('click', () => {
+            // reveal briefly
+            drawChambers(true);
+            statusEl.textContent = 'Câmaras reveladas por 2s (mostrando BRINQUEDO).';
+            setTimeout(() => { drawChambers(false); statusEl.textContent = 'Pronto.' }, 2000);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            bulletIndex = Math.floor(Math.random() * chambersCount);
+            currentIndex = 0;
+            drawChambers(false);
+            updateMarkerRotation();
+            statusEl.textContent = 'Reset feito. Gire o cilindro para começar.';
+            addLog('Reset do jogo.');
+        });
+
+        soundToggle.addEventListener('click', () => {
+            soundOn = !soundOn;
+            soundToggle.textContent = 'Som: ' + (soundOn ? 'ligado' : 'desligado');
+        });
+
+        vibeToggle.addEventListener('click', () => {
+            vibOn = !vibOn;
+            vibeToggle.textContent = 'Vibração: ' + (vibOn ? 'ligado' : 'desligado');
+        });
+
+        /* update marker rotation to visualize currentIndex */
+        function updateMarkerRotation() {
+            const marker = document.getElementById('marker');
+            const angle = (360 / chambersCount) * currentIndex;
+            marker.setAttribute('transform', `rotate(${angle})`);
+        }
+        updateMarkerRotation();
+
+        /* initialize log */
+        addLog('Jogo iniciado — seguro e só confete.');
+
+        /* small accessibility: keyboard shortcuts */
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') { e.preventDefault(); pullBtn.click(); }
+            if (e.key.toLowerCase() === 's') spinBtn.click();
+            if (e.key.toLowerCase() === 'r') resetBtn.click();
+        });
+
+        /* ensure canvas positioning updates on scroll/resize */
+        new ResizeObserver(resizeConfetti).observe(document.getElementById('app'));
+        window.addEventListener('scroll', resizeConfetti);
+    </script>
+</body>
+
+</html>
